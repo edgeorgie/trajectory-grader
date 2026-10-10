@@ -1,0 +1,51 @@
+{
+  "ts": "2026-10-09T19:55:57.271Z",
+  "repo": "edgeorgie/triage-desk",
+  "issue": 24,
+  "mode": "heuristic",
+  "runId": null,
+  "result": {
+    "kind": "bug",
+    "priority": "p0",
+    "labels": ["bug", "p0"],
+    "duplicateOf": null,
+    "summary": "bug report: Bug: duplicate detection crashes on empty issue body",
+    "needsInfo": ["Package/app version"],
+    "reply": "Thanks for the report! I've filed this as a p0 bug. To help us investigate, could you add: Package/app version?\n\n_Automated heuristic triage (no LLM key configured) \u2014 see Production usage in README._",
+    "confidence": 0.4
+  },
+  "steps": [
+    {"kind": "thought", "text": "Heuristic fallback (no LLM key configured)."},
+    {
+      "kind": "tool",
+      "id": "heuristic-1",
+      "name": "submit_triage",
+      "input": {
+        "kind": "bug",
+        "priority": "p0",
+        "labels": ["bug", "p0"],
+        "duplicate_of": null,
+        "summary": "bug report: Bug: duplicate detection crashes on empty issue body",
+        "needs_info": ["Package/app version"],
+        "reply": "Thanks for the report! I've filed this as a p0 bug. To help us investigate, could you add: Package/app version?\n\n_Automated heuristic triage (no LLM key configured) \u2014 see Production usage in README._",
+        "confidence": 0.4
+      }
+    },
+    {
+      "kind": "tool",
+      "id": "heuristic-1",
+      "name": "submit_triage",
+      "input": {
+        "kind": "bug",
+        "priority": "p0",
+        "labels": ["bug", "p0"],
+        "duplicate_of": null,
+        "summary": "bug report: Bug: duplicate detection crashes on empty issue body",
+        "needs_info": ["Package/app version"],
+        "reply": "Thanks for the report! I've filed this as a p0 bug. To help us investigate, could you add: Package/app version?\n\n_Automated heuristic triage (no LLM key configured) \u2014 see Production usage in README._",
+        "confidence": 0.4
+      },
+      "output": "Triage recorded."
+    }
+  ]
+}
