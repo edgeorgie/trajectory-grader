@@ -42,11 +42,16 @@ jobs:
           pip install -e ".[dev]"
           pip install "ruff==0.17.0" "mypy==2.4.0" build
 
+      # `scripts/` is linted and format-checked alongside src/tests on purpose:
+      # scripts/to_canonical.py is executed by the "CLI contract" step below, so
+      # it is CI-load-bearing code, not a loose helper. Omitting it here would
+      # contradict both pyproject.toml's `src = [...]` and the README's
+      # reproduce-CI-locally command.
       - name: Lint (ruff check)
-        run: ruff check src tests
+        run: ruff check src tests scripts
 
       - name: Format check (ruff format)
-        run: ruff format --check src tests
+        run: ruff format --check src tests scripts
 
       - name: Typecheck (mypy)
         run: mypy src
