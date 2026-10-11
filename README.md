@@ -139,14 +139,25 @@ perfect score.
 ## Continuous integration
 
 Every push and pull request to `main` runs the `verify` workflow
-(`.github/workflows/verify.yml`) on Python 3.11 and 3.13:
+(`.github/workflows/verify.yml`). The real work happens in a `test` matrix on
+Python 3.11 and 3.13:
 
 - `ruff check` (lint) and `ruff format --check` (formatting)
 - `mypy --strict` over `src/`
 - the full `pytest` suite
 - the CLI contract: `--help` exits `0`, and the real example trajectory
   above is graded without crashing
+- the calibration contract: the hand-written gold set loads and agreement is
+  reportable, so a typo in a label fails CI rather than silently skewing a
+  published number
 - a wheel build, then an import of that wheel from a clean virtualenv
+
+A separate one-step `verify` job aggregates that matrix into a single fixed
+status name. This is not ceremony: GitHub suffixes each matrix leg with its
+matrix value (`test (3.11)`, `test (3.13)`), so a matrix job can never satisfy
+a branch-protection context named `verify` — protection would wait forever for
+a check that cannot arrive. The aggregator fails if any leg failed, was
+skipped, or was cancelled.
 
 `verify` is a required status check on `main` with `enforce_admins` enabled,
 so nothing reaches `main` without it passing.
