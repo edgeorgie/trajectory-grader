@@ -12,7 +12,10 @@ def test_grade_collects_violations_from_every_rule():
             Step(kind="tool", tool="submit", args={"x": 1}, ok=True),
         ),
     )
-    rules = [redundant_call_after_success, no_terminal_action(terminal_tools=frozenset({"submit"}))]
+    rules = [
+        redundant_call_after_success,
+        no_terminal_action(terminal_tools=frozenset({"submit"})),
+    ]
     report = grade(traj, rules)
     assert report.num_tool_calls == 2
     assert not report.passed

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Scores agent decision trajectories against a declarative process-quality rubric."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 dependencies = []
 
 [project.optional-dependencies]
@@ -19,3 +19,19 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+# 100 rather than the 88 default: the rubric rules carry long explanatory
+# violation messages that read worse when hard-wrapped mid-sentence.
+line-length = 100
+# `scripts/` is included so the committed CI helper is linted like real code.
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true

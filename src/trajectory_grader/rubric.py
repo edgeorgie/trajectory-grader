@@ -11,10 +11,11 @@ See ROADMAP.md for why the judge is future work, not faked here.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any
 
-from .schema import Step, Trajectory
+from .schema import Trajectory
 
 
 @dataclass(frozen=True)
@@ -27,9 +28,7 @@ class Violation:
 Rule = Callable[[Trajectory], list[Violation]]
 
 
-def wrong_tool_before_right(
-    *, wrong_tool: str, right_tool: str
-) -> Rule:
+def wrong_tool_before_right(*, wrong_tool: str, right_tool: str) -> Rule:
     """Flag calling `wrong_tool` before ever calling `right_tool`, when
     `right_tool` was eventually called in the same trajectory (i.e. the
     agent itself demonstrated the right tool was reachable/known)."""
@@ -134,5 +133,10 @@ def no_terminal_action(*, terminal_tools: frozenset[str]) -> Rule:
     return check
 
 
-def _stable_args_key(args: dict) -> str:
+def _stable_args_key(args: dict[str, Any]) -> str:
+    """Order-independent fingerprint of a tool call's arguments.
+
+    Used to decide whether two calls to the same tool were *identical*
+    (a redundant repeat / an unchanged retry) rather than merely adjacent.
+    """
     return repr(sorted(args.items()))

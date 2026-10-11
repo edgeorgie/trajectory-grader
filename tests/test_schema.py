@@ -1,20 +1,16 @@
+import pytest
+
 from trajectory_grader.schema import Step, Trajectory, trajectory_from_dict
 
 
 def test_step_rejects_invalid_kind():
-    try:
+    with pytest.raises(ValueError, match="must be 'thought' or 'tool'"):
         Step(kind="banana")
-        assert False, "expected ValueError"
-    except ValueError:
-        pass
 
 
 def test_tool_step_requires_tool_name():
-    try:
+    with pytest.raises(ValueError, match="must have a tool name"):
         Step(kind="tool")
-        assert False, "expected ValueError"
-    except ValueError:
-        pass
 
 
 def test_trajectory_from_dict_round_trips():
@@ -24,7 +20,13 @@ def test_trajectory_from_dict_round_trips():
         "final_action": "submit",
         "steps": [
             {"kind": "thought", "text": "thinking"},
-            {"kind": "tool", "tool": "search", "args": {"q": "x"}, "result": "ok", "ok": True},
+            {
+                "kind": "tool",
+                "tool": "search",
+                "args": {"q": "x"},
+                "result": "ok",
+                "ok": True,
+            },
         ],
     }
     traj = trajectory_from_dict(data)
