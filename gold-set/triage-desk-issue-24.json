@@ -1,0 +1,12 @@
+{
+  "task_id": "triage-desk-issue-24",
+  "labeled_by": "edgeorgie",
+  "labeled_at": "2026-10-11",
+  "notes": "Labeled by reading the raw log AND triage-desk's lib/agent.ts, before looking at the rubric's output for it. This run is heuristic-fallback mode (no LLM key), so the 'agent' makes exactly one decision: it classifies the issue and submits. wrong_tool_before_right: ok — find_similar is never called anywhere in this trajectory, so there is no evidence the right tool was reachable and skipped; the rule correctly stays silent rather than assuming. bad_retry_no_change: ok — nothing failed, so there was no retry to judge. redundant_call_after_success: ok, and this is the judgement call in this label. The raw log shows submit_triage twice with identical args, which LOOKS like over-calling, but lib/agent.ts lines 71/73 emit one onStep before executeTool and one after, both with the same call.id. So it is one action logged twice, not two actions. Grading it as a violation would blame the agent for its logger. no_terminal_action: ok — submit_triage IS the terminal action and it was called. One label is far too few to compute a meaningful agreement number from; this exists so the machinery is exercised against something real, and the count is stated honestly in CALIBRATION.md.",
+  "verdicts": {
+    "wrong_tool_before_right": "ok",
+    "bad_retry_no_change": "ok",
+    "redundant_call_after_success": "ok",
+    "no_terminal_action": "ok"
+  }
+}
