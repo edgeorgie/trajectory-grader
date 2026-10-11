@@ -25,10 +25,20 @@ and is not done yet.
 - **LLM-judge scoring.** Current rules are deterministic/rule-based. An
   LLM-judge pass (with its own prompt, its own failure modes, and its own
   cost) is a separate, larger piece of work.
-- **Hand-labeled gold set.** Need 20-30 real trajectories labeled by a human
-  (me) independently of the rubric code, then a judge-vs-human agreement
-  report that states the disagreement rate plainly, including if it's bad.
-  Zero trajectories are labeled today.
+- **A gold set large enough to mean anything.** The calibration machinery is
+  built and runs (`labels.py`, `agreement.py`,
+  `python -m trajectory_grader.calibrate`, `CALIBRATION.md`), with per-rule
+  raw agreement and Cohen's kappa, and **1** trajectory labeled by hand.
+  The target is 20-30. At n=1 kappa is undefined on every rule and the
+  reported raw agreement means almost nothing — `CALIBRATION.md` states this
+  rather than publishing the flattering 1.000.
+- **Gold-set cases where a rule should actually fire.** Every verdict labeled
+  so far is `ok`, so nothing yet distinguishes a working rule from one that
+  never fires. This is the single most valuable next addition, ahead of more
+  labels in general.
+- **Inter-rater agreement.** Current numbers are human-vs-rubric with a single
+  labeler. Two independent humans labeling the same trajectories would reveal
+  systematic bias in the labels, which is currently invisible.
 - **More rubric cases.** The four rules above are a starting set chosen to
   be clearly testable, not an exhaustive process-quality taxonomy. "Asked a
   clarifying question instead of guessing" in particular isn't implemented

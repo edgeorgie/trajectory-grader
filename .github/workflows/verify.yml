@@ -76,6 +76,14 @@ jobs:
           if [ "$rc" -gt 1 ]; then echo "CLI failed with exit $rc on a real example"; exit 1; fi
           echo "CLI graded the real example trajectory, exit $rc (0=clean, 1=violations)"
 
+      - name: Calibration contract — gold set loads and agreement is reportable
+        # Guards the hand-written gold set: a typo in a label JSON must fail
+        # here rather than silently skewing a published agreement number.
+        # Exit 0 is required because the gold set is non-empty — `calibrate`
+        # exits 2 on an empty gold set, so this step also catches the gold
+        # set being accidentally emptied.
+        run: python -m trajectory_grader.calibrate gold-set/ examples/subject-under-test/
+
       - name: Build wheel
         run: python -m build --wheel --outdir dist
 
@@ -83,4 +91,4 @@ jobs:
         run: |
           python -m venv /tmp/wheelcheck
           /tmp/wheelcheck/bin/pip install --quiet dist/*.whl
-          /tmp/wheelcheck/bin/python -c "import trajectory_grader, trajectory_grader.cli; print('wheel import ok')"
+          /tmp/wheelcheck/bin/python -c "import trajectory_grader, trajectory_grader.cli, trajectory_grader.calibrate; print('wheel import ok')"
