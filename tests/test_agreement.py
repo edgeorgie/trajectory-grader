@@ -1,6 +1,7 @@
 import pytest
 
 from trajectory_grader.agreement import (
+    MIN_N_FOR_KAPPA,
     automated_verdicts,
     cohens_kappa,
     compare,
@@ -112,10 +113,60 @@ def test_unmeasured_rule_reports_none_not_zero():
     assert "not measured" in stats.describe()
 
 
-def test_describe_renders_undefined_kappa_as_words_not_a_number():
+def test_kappa_is_suppressed_below_the_n_floor_not_printed_as_zero():
+    """Regression: n=1 with a disagreement printed a hard `0.000`.
+
+    pe = 1*0 + 0*1 = 0, so kappa = (0-0)/(1-0) = 0.0 exactly — which a
+    reader takes as "measured, agreement no better than chance" when it is
+    a single item. The raw formula is correct; publishing its output at that
+    n is not.
+    """
+    stats = rule_agreement("r", [("t1", "violation", "ok")])
+    assert stats.n == 1
+    assert stats.raw_agreement == 0.0  # raw agreement IS meaningful, and is kept
+    assert stats.kappa is None
+    assert "n=1" in stats.kappa_undefined_because
+    assert "not reportable" in stats.describe()
+    assert "0.000" not in stats.describe().split("kappa")[1]
+
+
+def test_kappa_is_reported_once_the_floor_is_met():
+    # at/above the floor the real value must come through, so the guard is a
+    # floor and not a blanket suppression
+    pairs = [("t", "ok", "ok")] * 3 + [("t", "violation", "violation")] * 2
+    stats = rule_agreement("r", pairs)
+    assert stats.n == MIN_N_FOR_KAPPA
+    assert stats.kappa == 1.0
+    assert stats.kappa_undefined_because == ""
+    assert "1.000" in stats.describe()
+
+
+def test_single_category_above_the_floor_is_still_undefined_with_its_own_reason():
+    stats = rule_agreement("r", [("t", "ok", "ok")] * 10)
+    assert stats.kappa is None
+    assert "single category" in stats.kappa_undefined_because
+
+
+def test_describe_renders_unreportable_kappa_as_words_not_a_number():
+    """Whatever the reason, an absent kappa must never render as a numeral.
+
+    This asserts the *intent* (no decimal value where there is no
+    measurement) rather than one specific wording, so tightening the reason
+    text cannot break it — but substituting a number still does. At n=2 the
+    n-floor is the binding reason; the single-category cause has its own
+    test above.
+    """
+    import re
+
     stats = rule_agreement("r", [("t1", "ok", "ok"), ("t2", "ok", "ok")])
     assert stats.kappa is None
-    assert "undefined" in stats.describe()
+    rendered = stats.describe()
+    kappa_slot = rendered.split("kappa", 1)[1]
+    assert not re.search(r"\d\.\d", kappa_slot), (
+        f"kappa rendered as a decimal value despite being unmeasured: {rendered}"
+    )
+    assert stats.kappa_undefined_because
+    assert stats.kappa_undefined_because in rendered
 
 
 # --- automated verdicts ---------------------------------------------------

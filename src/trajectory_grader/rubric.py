@@ -106,17 +106,44 @@ def redundant_call_after_success(traj: Trajectory) -> list[Violation]:
     return violations
 
 
-def no_terminal_action(*, terminal_tools: frozenset[str]) -> Rule:
+def no_terminal_action(
+    *,
+    terminal_tools: frozenset[str],
+    external_halt_actions: frozenset[str] = frozenset(),
+) -> Rule:
     """Flag a trajectory that never calls any tool in `terminal_tools`.
 
     A trajectory that only ever investigates and never acts (e.g. never
     calls submit/reply/close) stopped at the wrong point — it should either
     have taken the terminal action or explicitly asked for clarification.
+
+    `external_halt_actions` names the `final_action` values that mean the
+    run was stopped by something outside the agent's own judgement, in which
+    case this rule stays silent. It exists because grading a second,
+    independently-built agent showed the rule as originally written could
+    not tell two very different situations apart:
+
+    1. an agent that wandered, lost the thread, and stopped without
+       committing — the process failure this rule is for;
+    2. a run that a cost governor deliberately halted on a budget ceiling,
+       having correctly priced the next step and refused it.
+
+    Both produce a trajectory with no terminal call, so the rule fired on
+    both. But (2) is the governor working exactly as designed, and scoring
+    it as an agent process failure is the same category of error as blaming
+    an agent for its logger double-writing steps (see CALIBRATION.md) — the
+    rule was attributing to the agent an outcome the agent did not choose.
+
+    Defaulting to an empty set keeps the original behaviour for callers that
+    have no such concept, so an adapter must opt in by naming its own halt
+    reasons rather than getting silent leniency.
     """
 
     def check(traj: Trajectory) -> list[Violation]:
         tools = traj.tool_steps()
         if any(s.tool in terminal_tools for s in tools):
+            return []
+        if traj.final_action is not None and traj.final_action in external_halt_actions:
             return []
         last_index = max(len(tools) - 1, 0)
         return [

@@ -79,6 +79,136 @@ def test_a_genuine_repeat_call_is_still_caught():
     assert report.violations[0].rule == "redundant_call_after_success"
 
 
+def test_a_same_id_pair_naming_two_different_tools_is_not_merged():
+    """Regression: blind id-keyed merging DELETED a real tool call.
+
+    An id-only merge collapsed `get_issue` then `submit_triage` (same id,
+    both with output) into a single `submit_triage` step — the `get_issue`
+    call vanished with no warning, destroying exactly the signal
+    `wrong_tool_before_right` exists to detect.
+
+    triage-desk ids genuinely repeat across distinct calls:
+    `scripts/triage-bot.ts` hardcodes `id: "heuristic-1"` for every
+    heuristic run, and `lib/agent.ts` falls back to `id: b.id ?? ""`.
+    """
+    entry = {
+        "issue": 1,
+        "result": {"kind": "bug"},
+        "steps": [
+            {"kind": "tool", "id": "same", "name": "get_issue", "input": {"n": 1}, "output": "ok"},
+            {
+                "kind": "tool",
+                "id": "same",
+                "name": "submit_triage",
+                "input": {"k": "bug"},
+                "output": "ok",
+            },
+        ],
+    }
+    traj = trajectory_from_triage_desk_log(entry)
+    assert [s.tool for s in traj.tool_steps()] == ["get_issue", "submit_triage"]
+
+
+def test_a_genuine_repeat_reusing_an_id_is_still_caught():
+    """Regression: a real duplicate that reused an id was silently collapsed.
+
+    Both records carry an outcome, which is what distinguishes a genuine
+    immediate repeat from the pre/post logging pair. Under id-only merging
+    this reported a clean trajectory.
+    """
+    entry = {
+        "issue": 1,
+        "result": {"kind": "bug"},
+        "steps": [
+            {
+                "kind": "tool",
+                "id": "h1",
+                "name": "submit_triage",
+                "input": {"a": 1},
+                "output": "ok",
+            },
+            {
+                "kind": "tool",
+                "id": "h1",
+                "name": "submit_triage",
+                "input": {"a": 1},
+                "output": "ok",
+            },
+        ],
+    }
+    report = grade(trajectory_from_triage_desk_log(entry), [redundant_call_after_success])
+    assert not report.passed
+    assert report.violations[0].rule == "redundant_call_after_success"
+
+
+def test_a_retry_reusing_an_id_is_still_caught():
+    entry = {
+        "issue": 1,
+        "result": {},
+        "steps": [
+            {
+                "kind": "tool",
+                "id": "h1",
+                "name": "t",
+                "input": {"a": 1},
+                "output": "boom",
+                "isError": True,
+            },
+            {
+                "kind": "tool",
+                "id": "h1",
+                "name": "t",
+                "input": {"a": 1},
+                "output": "boom",
+                "isError": True,
+            },
+        ],
+    }
+    from trajectory_grader.rubric import bad_retry_no_change
+
+    report = grade(trajectory_from_triage_desk_log(entry), [bad_retry_no_change])
+    assert not report.passed
+    assert report.violations[0].rule == "bad_retry_no_change"
+
+
+def test_an_empty_string_id_pair_is_still_coalesced():
+    """Regression: the empty-id path reopened the original false positive.
+
+    `lib/agent.ts` emits `id: b.id ?? ""` when a model omits an id. A
+    truthiness check (`raw.get("id")`) skips coalescing for `""`, so the
+    double-logged pair survived as two steps and
+    `redundant_call_after_success` fired again — reproducing the exact bug
+    the coalescing exists to fix. Presence of the key, not its truthiness,
+    is the correct test.
+    """
+    entry = {
+        "issue": 1,
+        "result": {"kind": "bug"},
+        "steps": [
+            {"kind": "tool", "id": "", "name": "submit_triage", "input": {"a": 1}},
+            {"kind": "tool", "id": "", "name": "submit_triage", "input": {"a": 1}, "output": "ok"},
+        ],
+    }
+    traj = trajectory_from_triage_desk_log(entry)
+    assert len(traj.tool_steps()) == 1
+    assert grade(traj, [redundant_call_after_success]).passed
+
+
+def test_three_consecutive_same_id_steps_do_not_all_collapse():
+    # a pre/post pair is exactly two records; a third same-id step with its
+    # own outcome is another action and must survive
+    entry = {
+        "issue": 1,
+        "result": {},
+        "steps": [
+            {"kind": "tool", "id": "x", "name": "t", "input": {}},
+            {"kind": "tool", "id": "x", "name": "t", "input": {}, "output": "ok"},
+            {"kind": "tool", "id": "x", "name": "t", "input": {}, "output": "ok"},
+        ],
+    }
+    assert len(trajectory_from_triage_desk_log(entry).tool_steps()) == 2
+
+
 def test_coalesce_keeps_the_post_execution_outcome():
     steps = [
         {"kind": "tool", "id": "x", "name": "t", "input": {}},

@@ -44,6 +44,11 @@ class RuleAgreement:
     #: (automated, human) verdict pairs that disagreed, with the task_id.
     disagreements: tuple[tuple[str, str, str], ...]
     kappa: float | None
+    #: Why kappa is None, when it is. Empty string when kappa is a number.
+    #: Carried explicitly because "undefined" has two distinct causes with
+    #: different meanings for the reader, and collapsing them into a bare
+    #: None loses the one a reviewer needs.
+    kappa_undefined_because: str = ""
 
     @property
     def raw_agreement(self) -> float | None:
@@ -62,13 +67,29 @@ class RuleAgreement:
         raw = self.raw_agreement
         assert raw is not None  # n > 0
         if self.kappa is None:
-            kappa = "undefined (both sides used a single category)"
+            kappa = f"not reportable ({self.kappa_undefined_because})"
         else:
             kappa = f"{self.kappa:.3f}"
         return (
             f"{self.rule}: raw agreement {raw:.3f} ({self.agreements}/{self.n}), "
             f"Cohen's kappa {kappa}"
         )
+
+
+#: Below this many scorable items, kappa is suppressed regardless of whether
+#: the formula yields a number.
+#:
+#: The formula is happy to produce a confident-looking value from almost no
+#: evidence: at n=1 with a disagreement, pe = 0 and kappa = 0.000 exactly —
+#: which a reader takes as "measured, agreement no better than chance" when
+#: it is one item. The same reasoning that makes returning None for pe == 1
+#: correct (never print a number the evidence cannot support) applies here,
+#: so the floor is enforced rather than left to the prose around the number.
+#:
+#: 5 is a deliberately modest floor: it does not make kappa *reliable* — the
+#: project targets 20-30 labels for that — it only rules out the sizes where
+#: the value is arithmetic rather than evidence.
+MIN_N_FOR_KAPPA = 5
 
 
 def rule_agreement(
@@ -84,12 +105,26 @@ def rule_agreement(
     n = len(pairs)
     agreements = sum(1 for _, auto, human in pairs if auto == human)
     disagreements = tuple((task, auto, human) for task, auto, human in pairs if auto != human)
+
+    reason = ""
+    if n == 0:
+        kappa = None
+        reason = "nothing labeled"
+    elif n < MIN_N_FOR_KAPPA:
+        kappa = None
+        reason = f"n={n}, below the n>={MIN_N_FOR_KAPPA} floor"
+    else:
+        kappa = cohens_kappa([(a, h) for _, a, h in pairs])
+        if kappa is None:
+            reason = "both sides used a single category"
+
     return RuleAgreement(
         rule=rule,
         n=n,
         agreements=agreements,
         disagreements=disagreements,
-        kappa=cohens_kappa([(a, h) for _, a, h in pairs]),
+        kappa=kappa,
+        kappa_undefined_because=reason,
     )
 
 

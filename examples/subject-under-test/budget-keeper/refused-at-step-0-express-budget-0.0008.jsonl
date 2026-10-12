@@ -1,0 +1,4 @@
+{"type":"run-start","runId":"run_mv4wutvq","budgetUsd":0.0008,"plannedSteps":1,"at":1791788913350}
+{"type":"tier-decision","step":0,"chosen":"mid","reason":"declared default, no escalation signal","at":1791788913351}
+{"type":"preflight-refusal","step":0,"worstCaseUsd":0.000849,"remainingUsd":0.0008,"at":1791788913351}
+{"type":"run-end","runId":"run_mv4wutvq","reason":"budget-preflight","spend":{"inputTokens":0,"outputTokens":0,"usd":0},"at":1791788913351}

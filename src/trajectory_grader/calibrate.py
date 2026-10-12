@@ -137,11 +137,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     if orphans:
         print(f"\nlabeled but not graded (excluded from every denominator): {orphans}")
 
+    stats = compare(graded, gold, rules)
     print("\nper-rule agreement:")
-    for stats in compare(graded, gold, rules):
-        print(f"  {stats.describe()}")
-        for task, auto, human in stats.disagreements:
+    for rule_stats in stats:
+        print(f"  {rule_stats.describe()}")
+        for task, auto, human in rule_stats.disagreements:
             print(f"      disagreement on {task}: rubric said {auto}, human said {human}")
+
+    # A run where no rule had a single scorable item measured nothing, even
+    # though every label loaded cleanly. That happens when the trajectory
+    # directory is empty, or when every label's task_id is orphaned — e.g.
+    # the example trajectory was deleted or its task_id drifted. Reporting
+    # rc=0 there would let CI stay green while the published number silently
+    # lost its basis, which is the same failure as an empty gold set and
+    # gets the same exit code.
+    if all(s.n == 0 for s in stats):
+        print(
+            "\nNothing was measurable: no rule had a single scorable (label, graded run)\n"
+            "pair. Every label loaded, so this is not a malformed gold set — the\n"
+            "trajectories are missing or their task_ids do not match any label.\n"
+            "Treating this as a failure, because a published agreement number must\n"
+            "never be sourced from a run where nothing was compared."
+        )
+        return EXIT_USAGE
+
     return EXIT_OK
 
 
