@@ -98,16 +98,43 @@ def test_load_gold_label_reads_a_single_file(tmp_path):
 
 
 def test_the_committed_gold_set_directory_is_loadable():
-    """The real gold-set dir must always parse, however many labels it holds.
+    """The real gold-set dir must always parse, and must not be empty.
 
     This is the guard that matters as labels get added by hand: a typo in a
     hand-written JSON label should fail CI here, not silently skew a
     published agreement number.
+
+    The `>= 1` assertion is load-bearing, not decoration. Without it this
+    test passes on an EMPTY gold set — `load_gold_set` returns `[]`,
+    `isinstance([], list)` holds, and the per-label loop never runs — so
+    deleting every label would leave it green while claiming to guard them.
     """
     from pathlib import Path
 
     gold_dir = Path(__file__).resolve().parent.parent / "gold-set"
     labels = load_gold_set(gold_dir)
-    assert isinstance(labels, list)
+    assert len(labels) >= 1, f"the committed gold set is empty: {gold_dir}"
     for label in labels:
         assert label.labeled_by, f"{label.task_id} has no attributable labeler"
+        assert label.labeled_at, f"{label.task_id} has no label date"
+        assert label.verdicts, f"{label.task_id} records no verdicts"
+
+
+def test_the_committed_labels_name_only_real_rubric_rules():
+    """A label naming a rule that does not exist is silently unmeasurable.
+
+    `compare()` skips verdicts for unknown rule names, so a typo in a rule
+    name inside a hand-written label removes it from the denominator with no
+    error anywhere. Catch it here instead.
+    """
+    from pathlib import Path
+
+    import trajectory_grader.rubric as rubric
+
+    gold_dir = Path(__file__).resolve().parent.parent / "gold-set"
+    for label in load_gold_set(gold_dir):
+        for rule in label.verdicts:
+            assert hasattr(rubric, rule), (
+                f"{label.task_id} labels rule {rule!r}, which does not exist in "
+                "rubric.py — this verdict would be silently ignored"
+            )

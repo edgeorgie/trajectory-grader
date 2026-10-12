@@ -29,7 +29,7 @@ Differences from the canonical schema handled here:
   (``lib/agent.ts``, the two ``onStep`` calls around ``executeTool``) emits
   a step *before* executing a call and another *after* it, both carrying
   the same ``id``; only the second has ``output``. Those are one action, so
-  they are coalesced here by ``id`` — see ``_coalesce_tool_steps``.
+  they are coalesced here — see ``_coalesce_tool_steps``.
 
   This matters beyond tidiness: treating them as two steps made the
   ``redundant_call_after_success`` rule fire on every single-call
@@ -74,26 +74,54 @@ def trajectory_from_triage_desk_log(entry: dict[str, Any]) -> Trajectory:
     )
 
 
+def _is_pre_execution_pair(first: dict[str, Any], second: dict[str, Any]) -> bool:
+    """Whether two consecutive tool steps are one call logged pre- and post-execution.
+
+    All four conditions must hold, because each one alone is satisfiable by a
+    pair of genuinely distinct actions:
+
+    1. both carry an ``id`` field and the ids are equal — but note the id
+       alone is NOT sufficient evidence: triage-desk's own
+       ``scripts/triage-bot.ts`` hardcodes ``id: "heuristic-1"`` for every
+       heuristic run, and ``lib/agent.ts`` falls back to ``id: b.id ?? ""``
+       when a model omits one, so ids genuinely repeat across distinct calls;
+    2. the tool ``name`` matches — a same-id pair naming two different tools
+       is two actions, and merging them would silently DELETE one, which is
+       the signal rules like ``wrong_tool_before_right`` exist to detect;
+    3. the ``input`` matches — same tool, different args is two calls;
+    4. the first has no ``output`` and the second does — this is the actual
+       shape of the pre/post pair, and it is what distinguishes it from a
+       genuine immediate repeat (where BOTH records carry an outcome).
+
+    Condition 4 is the load-bearing one. Keyed on ``id`` alone, a real
+    duplicate call that reused an id would be silently collapsed and the
+    rubric would report a clean trajectory.
+    """
+    if "id" not in first or "id" not in second or first["id"] != second["id"]:
+        return False
+    if first.get("name") != second.get("name"):
+        return False
+    if first.get("input") != second.get("input"):
+        return False
+    # the pre-execution record has no outcome yet; the post-execution one does
+    return "output" not in first and "output" in second
+
+
 def _coalesce_tool_steps(raw_steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Merge triage-desk's pre/post-execution step pair into one action.
 
-    Consecutive ``tool`` steps sharing an ``id`` are the same call logged
-    twice (before and after execution); the later one carries the outcome,
-    so it wins. Thought steps and steps with no ``id`` pass through
-    untouched.
-
-    Deliberately scoped to *consecutive* steps with an identical ``id``: a
-    genuine second call to the same tool gets a fresh ``id`` from the model,
-    so a real duplicate is still preserved and still caught by the rubric.
+    Only merges a pair that looks like one call logged twice around its own
+    execution (see :func:`_is_pre_execution_pair`). Everything else — a
+    genuine repeat, two different tools that happen to share an id, a
+    retry — passes through as separate steps, so the rubric still sees it.
     """
     merged: list[dict[str, Any]] = []
     for raw in raw_steps:
         if (
             raw.get("kind") == "tool"
-            and raw.get("id")
             and merged
             and merged[-1].get("kind") == "tool"
-            and merged[-1].get("id") == raw["id"]
+            and _is_pre_execution_pair(merged[-1], raw)
         ):
             # same call, logged again after execution — keep the richer record
             merged[-1] = {**merged[-1], **raw}
